@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kotak Surat Kanvas</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #f5f6fa; color: #333; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; text-align: center; }
+        header { margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #2c3e50; }
+        
+        /* Navigasi / Tab Menu */
+        .btn-tab { padding: 10px 20px; border: none; background: #34495e; color: white; border-radius: 20px; cursor: pointer; font-weight: bold;}
+        .hidden { display: none !important; }
+
+        /* Tampilan Kanvas Admin */
+        .canvas-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        canvas { border: 2px dashed #bdc3c7; background: #fffdf9; cursor: crosshair; display: block; margin: 0 auto 15px; max-width: 100%; }
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin: 5px; }
+        .btn-send { background: #2ecc71; color: white; }
+        .btn-clear { background: #e74c3c; color: white; }
+
+        /* Tampilan Feed Surat Pengunjung */
+        .feed-section { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+        .kartu-surat { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #eee; }
+        .kartu-surat img { width: 100%; height: auto; border-radius: 4px; border: 1px solid #f1f1f1; }
+        .waktu { font-size: 12px; color: #95a5a6; margin-top: 8px; display: block; text-align: right; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1 id="web-title">✉️ Surat Untuk Dia</h1>
+            <button class="btn-tab" id="btnMode" onclick="switchMode()">Mode: Tulis Surat</button>
+        </header>
+
+        <main id="view-pengunjung">
+            <p style="margin-bottom: 20px; color: #7f8c8d;">Berikut adalah kumpulan surat coretan tangan langsung dari ku:</p>
+            <div class="feed-section" id="feed-surat">
+                </div>
+        </main>
+
+        <main id="view-admin" class="canvas-section hidden">
+            <h3>Goreskan Tulisan Tanganmu Di Sini:</h3>
+            <p style="font-size: 14px; color: #7f8c8d; margin-bottom: 15px;">Gunakan mouse atau touchscreen HP-mu</p>
+            
+            <canvas id="canvasSurat" width="500" height="600"></canvas>
+            
+            <div>
+                <button class="btn btn-clear" onclick="hapusCanvas()">Hapus Semua</button>
+                <button class="btn btn-send" id="btnSend" onclick="kirimSurat()">Kirim ke Web Dia 🚀</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // === KONFIGURASI SUPABASE (GANTI PAKE PUNYA KAMU) ===
+        const SUPABASE_URL = "URL_SUPABASE_KAMU";
+        const SUPABASE_KEY = "API_KEY_SUPABASE_KAMU";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // State Aplikasi
+        let currentMode = "pengunjung"; 
+        const canvas = document.getElementById('canvasSurat');
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+
+        // --- 1. LOGIKA NAVIGASI MODE ---
+        function switchMode() {
+            if (currentMode === "pengunjung") {
+                currentMode = "admin";
+                document.getElementById('view-pengunjung').classList.add('hidden');
+                document.getElementById('view-admin').classList.remove('hidden');
+                document.getElementById('btnMode').innerText = "Mode: Lihat Surat";
+                document.getElementById('web-title').innerText = "✍️ Ruang Menulis";
+                resizeCanvas();
+            } else {
+                currentMode = "pengunjung";
+                document.getElementById('view-admin').classList.add('hidden');
+                document.getElementById('view-pengunjung').classList.remove('hidden');
+                document.getElementById('btnMode').innerText = "Mode: Tulis Surat";
+                document.getElementById('web-title').innerText = "✉️ Surat Untuk Dia";
+                muatSurat();
+            }
+        }
+
+        // --- 2. LOGIKA MENGGAMBAR DI KANVAS ---
+        function setupCanvas() {
+            // Mouse Events
+            canvas.addEventListener('mousedown', () => drawing = true);
+            canvas.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); });
+            canvas.addEventListener('mousemove', drawMouse);
+
+            // Touch Events (Untuk HP / Tablet)
+            canvas.addEventListener('touchstart', (e) => { drawing = true; e.preventDefault(); });
+            canvas.addEventListener('touchend', () => { drawing = false; ctx.beginPath(); });
+            canvas.addEventListener('touchmove', drawTouch);
+        }
+
+        function drawMouse(e) {
+            if (!drawing) return;
+            let rect = canvas.getBoundingClientRect();
+            ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = '#2c3e50';
+            ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        }
+
+        function drawTouch(e) {
+            if (!drawing) return;
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = '#2c3e50';
+            ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+            ctx.stroke(); ctx.beginPath(); ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+        }
+
+        function hapusCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        function resizeCanvas() { /* Memastikan kanvas pas */ ctx.beginPath(); }
+
+        // --- 3. LOGIKA KIRIM SURAT (DATABASE) ---
+        async function kirimSurat() {
+            const btn = document.getElementById('btnSend');
+            btn.innerText = "Mengirim..."; btn.disabled = true;
+
+            // Mengubah coretan kanvas jadi teks gambar (Base64)
+            const dataURL = canvas.toDataURL('image/png');
+
+            const { data, error } = await supabase
+                .from('surat_kanvas')
+                .insert([{ image_data: dataURL }]);
+
+            if (error) {
+                alert("Gagal mengirim surat: " + error.message);
+            } else {
+                alert("Surat berhasil terkirim dan langsung terbit di web!");
+                hapusCanvas();
+                switchMode(); // Balik ke halaman utama biar keliatan hasilnya
+            }
+            btn.innerText = "Kirim ke Web Dia 🚀"; btn.disabled = false;
+        }
+
+        // --- 4. LOGIKA AMBIL DATA SURAT ---
+        async function muatSurat() {
+            const feed = document.getElementById('feed-surat');
+            feed.innerHTML = "<p>Sedang memuat surat cinta...</p>";
+
+            const { data, error } = await supabase
+                .from('surat_kanvas')
+                .select('*')
+                .order('id', { ascending: false }); // Yang terbaru muncul paling atas
+
+            if (error) {
+                feed.innerHTML = "<p>Gagal memuat surat.</p>";
+                return;
+            }
+
+            feed.innerHTML = "";
+            if (data.length === 0) {
+                feed.innerHTML = "<p style='color:#95a5a6;'>Belum ada surat yang tertulis.</p>";
+            }
+
+            data.forEach(surat => {
+                const div = document.createElement('div');
+                div.className = "kartu-surat";
+                
+                const tgl = new Date(surat.created_at).toLocaleDateString('id-ID', {
+                    day: 'numeric', month: 'short', hour: '2-digit', minute:'2-digit'
+                });
+
+                div.innerHTML = `
+                    <img src="${surat.image_data}" alt="Surat">
+                    <span class="waktu">Dibuat: ${tgl}</span>
+                `;
+                feed.appendChild(div);
+            });
+        }
+
+        // Jalankan fungsi awal
+        setupCanvas();
+        muatSurat();
+    </script>
+</body>
+</html>
