@@ -61,7 +61,7 @@
         // === KONFIGURASI SUPABASE (GANTI PAKE PUNYA KAMU) ===
         const SUPABASE_URL = "https://lbjhmtbvffoaqwesogxs.supabase.co/rest/v1/";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxiamhtdGJ2ZmZvYXF3ZXNvZ3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTM4ODgsImV4cCI6MjA5Nzc2OTg4OH0.M615GfIrzPqqEii6oQv4yIN0c9C6GB1BlAYdS5iH7p8";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // State Aplikasi
         let currentMode = "pengunjung"; 
@@ -129,7 +129,7 @@
             // Mengubah coretan kanvas jadi teks gambar (Base64)
             const dataURL = canvas.toDataURL('image/png');
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('surat_kanvas')
                 .insert([{ image_data: dataURL }]);
 
@@ -148,7 +148,7 @@
             const feed = document.getElementById('feed-surat');
             feed.innerHTML = "<p>Sedang memuat surat cinta...</p>";
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('surat_kanvas')
                 .select('*')
                 .order('id', { ascending: false }); // Yang terbaru muncul paling atas
